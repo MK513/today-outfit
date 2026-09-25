@@ -44,3 +44,8 @@ __screenshots__/
 deliverables/*.pptx
 deliverables/8반_김민_오늘뭐입지-초안.pdf
 deliverables/발표대본_4분.md
+
+# Environment secrets (commit only the .example template)
+.env
+.env.*
+!.env.example

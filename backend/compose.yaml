@@ -1,18 +1,19 @@
+# 접속 정보는 같은 폴더의 .env에서 읽는다 (.env.example 참고).
 services:
   postgres:
     image: postgres:17
     container_name: today-outfit-db
     environment:
-      POSTGRES_DB: today_outfit
-      POSTGRES_USER: today_outfit
-      POSTGRES_PASSWORD: today_outfit
+      POSTGRES_DB: ${DB_NAME:?set DB_NAME in .env}
+      POSTGRES_USER: ${DB_USERNAME:?set DB_USERNAME in .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
       TZ: Asia/Seoul
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U today_outfit -d today_outfit"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
