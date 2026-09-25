@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: today-outfit-db
+    environment:
+      POSTGRES_DB: today_outfit
+      POSTGRES_USER: today_outfit
+      POSTGRES_PASSWORD: today_outfit
+      TZ: Asia/Seoul
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U today_outfit -d today_outfit"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

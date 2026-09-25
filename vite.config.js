@@ -15,4 +15,10 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    // 백엔드(Spring Boot, context-path /api)로 API 요청을 넘긴다.
+    proxy: {
+      '/api': 'http://localhost:8080',
+    },
+  },
 })
