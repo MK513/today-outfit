@@ -1,5 +1,6 @@
 package com.todayoutfit.outfit;
 
+import com.todayoutfit.clothing.Clothing;
 import com.todayoutfit.common.BaseTimeEntity;
 import com.todayoutfit.user.User;
 import jakarta.persistence.CascadeType;
@@ -74,5 +75,16 @@ public class Outfit extends BaseTimeEntity {
         this.name = name;
         this.memo = memo;
         this.source = source;
+    }
+
+    /** 의류를 마지막 순서로 추가한다. */
+    public void addItem(Clothing clothing) {
+        items.add(new OutfitItem(this, clothing, items.size() + 1));
+    }
+
+    /** source=AI 코디의 요청 상황과 추천 이유 */
+    public void recordAiRecommendation(String requestText, String aiReason) {
+        this.requestText = requestText;
+        this.aiReason = aiReason;
     }
 }

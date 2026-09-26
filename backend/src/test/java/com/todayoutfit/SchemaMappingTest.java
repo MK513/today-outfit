@@ -20,11 +20,10 @@ import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Flyway 스키마 ↔ JPA 매핑과 DB 레벨 CASCADE 규칙을 실제 PostgreSQL로 검증한다. 각 테스트는 롤백된다. */
-@SpringBootTest
+@IntegrationTest
 @Transactional
 class SchemaMappingTest {
 

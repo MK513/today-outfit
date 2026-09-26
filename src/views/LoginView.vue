@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useWardrobeStore } from '@/stores/wardrobe'
 import { useOutfitsStore } from '@/stores/outfits'
 import { usePlannerStore } from '@/stores/planner'
-import { ensureDemoAccount } from '@/lib/seedDemo'
+import { seedLocalDemoData } from '@/lib/seedDemo'
 import { useToast } from '@/composables/useToast'
 import Icon from '@/components/Icon.vue'
 
@@ -27,10 +27,10 @@ function afterLogin() {
   router.replace(redirect)
 }
 
-function submit() {
+async function submit() {
   error.value = ''
   loading.value = true
-  const result = auth.login({ email: email.value, password: password.value })
+  const result = await auth.login({ email: email.value, password: password.value })
   loading.value = false
   if (!result.ok) {
     error.value = result.message
@@ -39,9 +39,16 @@ function submit() {
   afterLogin()
 }
 
-function tryDemo() {
-  const demoId = ensureDemoAccount(auth, wardrobe, outfits, planner)
-  auth.loginAsUserId(demoId)
+async function tryDemo() {
+  error.value = ''
+  loading.value = true
+  const result = await auth.loginDemo()
+  loading.value = false
+  if (!result.ok) {
+    error.value = result.message
+    return
+  }
+  seedLocalDemoData(auth.currentUser.id, wardrobe, outfits, planner)
   show('데모 계정으로 체험을 시작합니다')
   afterLogin()
 }
@@ -81,7 +88,7 @@ function tryDemo() {
       </button>
     </form>
 
-    <button class="btn btn-ghost btn-block" type="button" @click="tryDemo">
+    <button class="btn btn-ghost btn-block" type="button" :disabled="loading" @click="tryDemo">
       <Icon name="sparkles" :size="15" /> 데모 계정으로 체험하기
     </button>
 

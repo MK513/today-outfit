@@ -1,7 +1,4 @@
-import { uid, todayKey, addDays } from './constants'
-
-const DEMO_EMAIL = 'demo@today-outfit.app'
-const DEMO_PASSWORD = 'demo1234'
+import { todayKey, addDays } from './constants'
 
 // 실사 사진이 매칭되는 카테고리+색상 조합만 사용한다.
 const DEMO_CLOTHES = [
@@ -21,35 +18,27 @@ const DEMO_CLOTHES = [
   { name: '골드 목걸이', category: 'ACC', color: '골드', season: 'ALL' },
 ]
 
-export function ensureDemoAccount(authStore, wardrobeStore, outfitsStore, plannerStore) {
-  let user = authStore.users.find((u) => u.email === DEMO_EMAIL && !u.withdrawnAt)
-  if (user) return user.id
-
-  authStore.users.push({
-    id: uid('user'),
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
-    name: '데모 사용자',
-    createdAt: new Date().toISOString(),
-    withdrawnAt: null,
-  })
-  user = authStore.users[authStore.users.length - 1]
-  authStore.persist()
+/**
+ * 데모 계정(서버 /auth/demo)으로 로그인한 뒤, 이 기기에 샘플 옷장 데이터가 없으면 채운다.
+ * 의류·코디·플래너가 서버로 옮겨지면(3~4단계) 서버가 만든 샘플 데이터를 쓰고 이 함수는 제거한다.
+ */
+export function seedLocalDemoData(userId, wardrobeStore, outfitsStore, plannerStore) {
+  if (wardrobeStore.countByOwner(userId) > 0) return
 
   const created = wardrobeStore.addBulk(
-    DEMO_CLOTHES.map((c) => ({ ...c, ownerId: user.id, source: 'MANUAL' })),
+    DEMO_CLOTHES.map((c) => ({ ...c, ownerId: userId, source: 'MANUAL' })),
   )
 
   const byCat = (cat, index = 0) => created.filter((c) => c.category === cat)[index]
   const outfitA = outfitsStore.add({
-    ownerId: user.id,
+    ownerId: userId,
     name: '오피스 캐주얼',
     memo: '무난한 출근룩',
     clothingIds: [byCat('TOP').id, byCat('BOTTOM').id, byCat('SHOES').id, byCat('ACC').id],
     source: 'MANUAL',
   })
   outfitsStore.add({
-    ownerId: user.id,
+    ownerId: userId,
     name: '주말 나들이룩',
     memo: '편안한 주말 코디',
     clothingIds: [byCat('TOP', 1).id, byCat('BOTTOM', 1).id, byCat('SHOES', 1).id],
@@ -59,7 +48,5 @@ export function ensureDemoAccount(authStore, wardrobeStore, outfitsStore, planne
   })
 
   const today = todayKey()
-  plannerStore.upsert({ ownerId: user.id, planDate: addDays(today, 1), outfitId: outfitA.id })
-
-  return user.id
+  plannerStore.upsert({ ownerId: userId, planDate: addDays(today, 1), outfitId: outfitA.id })
 }
