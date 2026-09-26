@@ -20,6 +20,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      # 명세: 사진은 5MB 이하 (초과 시 400 INVALID_FILE)
+      max-file-size: 5MB
+      max-request-size: 6MB
   jackson:
     # API 명세 공통 규칙: 필드 명명은 snake_case
     property-naming-strategy: SNAKE_CASE
@@ -36,6 +41,15 @@ app:
     secret: ${JWT_SECRET}
     # Access Token 유효 시간(초). 명세 예시값 3600
     expires-in: ${JWT_EXPIRES_IN:3600}
+
+  image:
+    # 사진 저장소 구현 (local). 다른 저장소를 추가하면 ImageStore 구현체와 함께 값을 늘린다.
+    storage: ${IMAGE_STORAGE:local}
+    local:
+      # 업로드 사진 저장 폴더 (backend/ 기준 상대 경로, 커밋하지 않음)
+      dir: ${IMAGE_DIR:./uploads/images}
+      # context-path(/api) 포함. 클라이언트는 이 경로 + 저장소 키로 사진을 불러온다.
+      public-path: /api/images
 
 server:
   port: ${PORT:8080}

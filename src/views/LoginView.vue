@@ -48,7 +48,13 @@ async function tryDemo() {
     error.value = result.message
     return
   }
-  seedLocalDemoData(auth.currentUser.id, wardrobe, outfits, planner)
+  const userId = auth.currentUser.id
+  try {
+    await wardrobe.load(userId)
+    seedLocalDemoData(userId, wardrobe.byOwner(userId), outfits, planner)
+  } catch {
+    // 샘플 코디 생성은 부가 기능이라 실패해도 체험은 계속한다.
+  }
   show('데모 계정으로 체험을 시작합니다')
   afterLogin()
 }

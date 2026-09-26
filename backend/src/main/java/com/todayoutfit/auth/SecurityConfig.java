@@ -48,6 +48,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST).permitAll()
+                        // 사진 파일은 <img>로 불러오므로 토큰 없이 허용 (파일명은 추측 불가한 UUID)
+                        .requestMatchers(HttpMethod.GET, "/images/*/*").permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

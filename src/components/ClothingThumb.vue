@@ -9,7 +9,7 @@ const props = defineProps({
 
 // 실사 사진(사용자 업로드 또는 카테고리+색상 대표 사진)만 표시한다. 매칭되는 사진이 없으면 빈 상태로 둔다.
 const photoUrl = computed(
-  () => props.clothing?.fileUrl || categoryPhotoUrl(props.clothing?.category, props.clothing?.color),
+  () => props.clothing?.imageUrl || categoryPhotoUrl(props.clothing?.category, props.clothing?.color),
 )
 </script>
 

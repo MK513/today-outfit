@@ -45,9 +45,12 @@ public class Clothing extends BaseTimeEntity {
     @Column(nullable = false, length = 10)
     private SeasonType season;
 
-    /** NULL이면 화면에서 카테고리+색상 대표 사진으로 대체한다. */
+    /**
+     * 사진 저장소 키({userId}/{uuid}.png). 컬럼명은 명세(DBML)를 따라 image_url이지만 URL이 아니라 키를 저장하고,
+     * 응답의 image_url은 ImageService.publicUrl()로 만든다. NULL이면 화면에서 카테고리+색상 대표 사진으로 대체한다.
+     */
     @Column(name = "image_url", length = 500)
-    private String imageUrl;
+    private String imageKey;
 
     @Column(name = "image_file_name")
     private String imageFileName;
@@ -57,13 +60,13 @@ public class Clothing extends BaseTimeEntity {
     private ClothingSource source;
 
     public Clothing(User user, String name, ClothingCategory category, ClothingColor color, SeasonType season,
-            String imageUrl, String imageFileName, ClothingSource source) {
+            String imageKey, String imageFileName, ClothingSource source) {
         this.user = user;
         this.name = name;
         this.category = category;
         this.color = color;
         this.season = season == null ? SeasonType.ALL : season;
-        this.imageUrl = imageUrl;
+        this.imageKey = imageKey;
         this.imageFileName = imageFileName;
         this.source = source;
     }

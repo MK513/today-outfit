@@ -44,19 +44,25 @@ function goManual() {
 async function saveAll() {
   if (!candidates.value.length) return
   saving.value = true
-  wardrobe.addBulk(
-    candidates.value.map((c) => ({
-      ownerId: auth.currentUser.id,
-      name: c.name,
-      category: c.category,
-      color: c.color,
-      season: c.season,
-      source: 'TEXT',
-    })),
-  )
-  saving.value = false
-  show(`${candidates.value.length}벌을 등록했어요`)
-  router.replace({ name: 'wardrobe' })
+  errorMsg.value = ''
+  try {
+    const created = await wardrobe.addBulk(
+      auth.currentUser.id,
+      candidates.value.map((c) => ({
+        name: c.name,
+        category: c.category,
+        color: c.color,
+        season: c.season,
+        source: 'TEXT',
+      })),
+    )
+    show(`${created.length}벌을 등록했어요`)
+    router.replace({ name: 'wardrobe' })
+  } catch (e) {
+    errorMsg.value = e.message
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 

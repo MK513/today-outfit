@@ -39,8 +39,10 @@ function convertKeys(value, convert) {
 
 async function request(method, path, body) {
   const token = getToken()
+  const isForm = body instanceof FormData
   const headers = { Accept: 'application/json' }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // FormData는 브라우저가 boundary가 포함된 multipart Content-Type을 직접 붙인다.
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
 
   let response
@@ -48,7 +50,7 @@ async function request(method, path, body) {
     response = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(convertKeys(body, toSnakeKey)),
+      body: body === undefined || isForm ? body : JSON.stringify(convertKeys(body, toSnakeKey)),
     })
   } catch {
     throw new ApiError(0, 'NETWORK_ERROR', NETWORK_ERROR_MESSAGE)
@@ -81,4 +83,10 @@ export const api = {
   post: (path, body) => request('POST', path, body),
   put: (path, body) => request('PUT', path, body),
   delete: (path) => request('DELETE', path),
+  /** multipart 업로드. fields: { image: File } 형태 */
+  upload: (path, fields) => {
+    const form = new FormData()
+    Object.entries(fields).forEach(([name, value]) => form.append(name, value))
+    return request('POST', path, form)
+  },
 }

@@ -52,6 +52,8 @@ Docker Desktop만 켜져 있으면 되고, `.env`나 개발 데이터에 영향�
 | `DB_URL` | | 전체 JDBC URL. 지정하면 HOST/PORT/NAME 대신 사용 |
 | `JWT_SECRET` | ✅ (2단계부터) | JWT 서명 키, 32바이트 이상 Base64 |
 | `PORT` | | 서버 포트, 기본 `8080` |
+| `IMAGE_STORAGE` | | 사진 저장소 구현, 기본 `local` (현재 유일) |
+| `IMAGE_DIR` | | 로컬 저장소의 사진 폴더, 기본 `./uploads/images` (커밋 제외) |
 
 `DB_PASSWORD`를 바꿀 때: 이미 만들어진 DB 볼륨에는 새 값이 적용되지 않으므로 아래처럼 DB 계정 비밀번호도 함께 바꾼다.
 

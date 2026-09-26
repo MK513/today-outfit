@@ -2,7 +2,7 @@ import { CATEGORIES, COLORS, SEASONS, OUTFIT_SLOT_CATEGORIES } from './constants
 import { categoryPhotoUrl } from './categoryPhotos'
 
 function hasRealPhoto(clothing) {
-  return !!(clothing?.fileUrl || categoryPhotoUrl(clothing?.category, clothing?.color))
+  return !!(clothing?.imageUrl || categoryPhotoUrl(clothing?.category, clothing?.color))
 }
 
 function delay(ms) {

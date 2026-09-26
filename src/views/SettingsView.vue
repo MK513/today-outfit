@@ -40,7 +40,7 @@ async function withdraw() {
     error.value = result.message
     return
   }
-  wardrobe.purgeOwner(result.withdrawnUserId)
+  wardrobe.reset()
   outfits.purgeOwner(result.withdrawnUserId)
   planner.purgeOwner(result.withdrawnUserId)
   show('계정 탈퇴가 완료되었습니다')

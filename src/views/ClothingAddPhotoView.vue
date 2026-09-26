@@ -67,22 +67,30 @@ function goManual() {
   router.replace({ name: 'wardrobe-add-manual' })
 }
 
+// AI 분석은 아직 목업이라(6단계에서 /ai/clothes/photo-analysis로 교체) 저장할 때 사진을 업로드한다.
 async function save() {
   if (!candidate.value) return
   saving.value = true
-  wardrobe.add({
-    ownerId: auth.currentUser.id,
-    name: candidate.value.name,
-    category: candidate.value.category,
-    color: candidate.value.color,
-    season: candidate.value.season,
-    fileUrl: previewUrl.value,
-    fileName: fileObj.value?.name ?? candidate.value.fileName,
-    source: 'PHOTO',
-  })
-  saving.value = false
-  show('의류를 등록했어요')
-  router.replace({ name: 'wardrobe' })
+  errorMsg.value = ''
+  try {
+    const image = await wardrobe.uploadImage(fileObj.value)
+    await wardrobe.add({
+      ownerId: auth.currentUser.id,
+      name: candidate.value.name,
+      category: candidate.value.category,
+      color: candidate.value.color,
+      season: candidate.value.season,
+      imageUrl: image.imageUrl,
+      imageFileName: image.imageFileName,
+      source: 'PHOTO',
+    })
+    show('의류를 등록했어요')
+    router.replace({ name: 'wardrobe' })
+  } catch (e) {
+    errorMsg.value = e.message
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
