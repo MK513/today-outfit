@@ -34,22 +34,28 @@ function onFileChange(e) {
   reader.readAsDataURL(file)
 }
 
-function save() {
+async function save() {
   if (!form.value.name.trim()) return
   saving.value = true
-  wardrobe.add({
-    ownerId: auth.currentUser.id,
-    name: form.value.name.trim(),
-    category: form.value.category,
-    color: form.value.color,
-    season: form.value.season,
-    fileUrl: previewUrl.value || null,
-    fileName: fileObj.value?.name ?? null,
-    source: 'MANUAL',
-  })
-  saving.value = false
-  show('의류를 등록했어요')
-  router.replace({ name: 'wardrobe' })
+  try {
+    const image = fileObj.value ? await wardrobe.uploadImage(fileObj.value) : null
+    await wardrobe.add({
+      ownerId: auth.currentUser.id,
+      name: form.value.name.trim(),
+      category: form.value.category,
+      color: form.value.color,
+      season: form.value.season,
+      imageUrl: image?.imageUrl ?? null,
+      imageFileName: image?.imageFileName ?? null,
+      source: 'MANUAL',
+    })
+    show('의류를 등록했어요')
+    router.replace({ name: 'wardrobe' })
+  } catch (e) {
+    show(e.message)
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 

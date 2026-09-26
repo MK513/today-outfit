@@ -2,6 +2,7 @@ package com.todayoutfit.auth;
 
 import com.todayoutfit.common.ApiException;
 import com.todayoutfit.common.ErrorCode;
+import com.todayoutfit.image.ImageService;
 import com.todayoutfit.user.User;
 import com.todayoutfit.user.UserRepository;
 import java.util.Locale;
@@ -22,6 +23,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
     private final DemoAccountSeeder demoAccountSeeder;
+    private final ImageService imageService;
 
     /** 로그인 실패 시에도 BCrypt 비교를 한 번 수행해, 응답 시간으로 가입 여부가 드러나지 않게 한다. */
     private String dummyHash;
@@ -82,7 +84,7 @@ public class AuthService {
         return UserResponse.from(findUser(userId));
     }
 
-    /** 사용자 삭제 시 의류 · 코디 · 배치 · AI 이력은 DB의 ON DELETE CASCADE로 함께 삭제된다. */
+    /** 사용자 삭제 시 의류 · 코디 · 배치 · AI 이력은 DB의 ON DELETE CASCADE로 함께 삭제되고, 업로드 사진은 커밋 후 지운다. */
     @Transactional
     public void withdraw(Long userId, AuthRequests.Withdrawal request, Jwt jwt) {
         User user = findUser(userId);
@@ -91,6 +93,7 @@ public class AuthService {
         }
         userRepository.delete(user);
         tokenService.revoke(jwt);
+        imageService.deleteAllOfUserAfterCommit(userId);
     }
 
     /** 토큰은 유효하지만 이미 탈퇴한 사용자는 401로 처리한다. */

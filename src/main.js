@@ -6,14 +6,14 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { configureApi } from './lib/api'
-import { useAuthStore, removeLegacyLocalAccounts } from './stores/auth'
+import { useAuthStore, removeLegacyLocalData } from './stores/auth'
 
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
 
-removeLegacyLocalAccounts()
+removeLegacyLocalData()
 
 const auth = useAuthStore()
 configureApi({

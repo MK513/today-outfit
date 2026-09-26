@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** 모든 예외를 명세의 Error 스키마({code, error_code, message})로 변환한다. */
@@ -43,8 +45,13 @@ public class GlobalExceptionHandler {
         return respond(ErrorCode.INVALID_REQUEST, ErrorCode.INVALID_REQUEST.getDefaultMessage());
     }
 
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ErrorResponse> handleUploadSize(MaxUploadSizeExceededException e) {
+    /** 용량 초과, image 파트 누락, multipart가 아닌 요청 → 명세의 INVALID_FILE */
+    @ExceptionHandler({
+            MaxUploadSizeExceededException.class,
+            MissingServletRequestPartException.class,
+            MultipartException.class
+    })
+    public ResponseEntity<ErrorResponse> handleUpload(Exception e) {
         return respond(ErrorCode.INVALID_FILE, ErrorCode.INVALID_FILE.getDefaultMessage());
     }
 

@@ -8,3 +8,7 @@ app:
   jwt:
     # 테스트 전용 고정 키 (32바이트). 실제 키는 .env의 JWT_SECRET
     secret: dGVzdC1vbmx5LWp3dC1zZWNyZXQtMzItYnl0ZXMhISE=
+  image:
+    local:
+      # 테스트 업로드 사진은 임시 폴더에 저장한다.
+      dir: ${java.io.tmpdir}/today-outfit-test-images

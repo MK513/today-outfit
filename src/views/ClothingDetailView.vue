@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWardrobeStore } from '@/stores/wardrobe'
 import { categoryLabel, seasonLabel } from '@/lib/constants'
@@ -16,11 +16,20 @@ const clothing = computed(() => wardrobe.byId(props.id))
 
 const SOURCE_LABEL = { PHOTO: '사진 등록', TEXT: '문장 등록', MANUAL: '직접 등록' }
 
-function remove() {
-  if (!clothing.value) return
-  wardrobe.remove(clothing.value.id)
-  show('삭제했어요')
-  router.replace({ name: 'wardrobe' })
+const removing = ref(false)
+
+async function remove() {
+  if (!clothing.value || removing.value) return
+  removing.value = true
+  try {
+    await wardrobe.remove(clothing.value.id)
+    show('삭제했어요')
+    router.replace({ name: 'wardrobe' })
+  } catch (e) {
+    show(e.message)
+  } finally {
+    removing.value = false
+  }
 }
 </script>
 
@@ -41,9 +50,9 @@ function remove() {
           <span>등록 경로</span>
           <span>{{ SOURCE_LABEL[clothing.source] ?? clothing.source }}</span>
         </div>
-        <div v-if="clothing.fileName" class="detail-row">
+        <div v-if="clothing.imageFileName" class="detail-row">
           <span>파일명</span>
-          <span>{{ clothing.fileName }}</span>
+          <span>{{ clothing.imageFileName }}</span>
         </div>
         <div class="detail-row">
           <span>등록일</span>

@@ -93,8 +93,13 @@ export const useAuthStore = defineStore('auth', {
   },
 })
 
-/** 서버 인증 도입 전 localStorage에 평문 비밀번호로 저장하던 계정 목록을 지운다. */
-export function removeLegacyLocalAccounts() {
+/**
+ * 서버로 옮긴 데이터의 옛 localStorage 사본을 지운다.
+ * - users/currentUserId: 서버 인증 도입 전 평문 비밀번호로 저장하던 계정 목록 (2단계)
+ * - clothes: 서버 옷장 도입 전 의류 목록, 사진이 base64로 들어 있어 용량이 크다 (3단계)
+ */
+export function removeLegacyLocalData() {
   removeKey('users')
   removeKey('currentUserId')
+  removeKey('clothes')
 }
