@@ -12,10 +12,10 @@ const form = ref({ email: '', password: '', passwordConfirm: '', name: '' })
 const error = ref('')
 const loading = ref(false)
 
-function submit() {
+async function submit() {
   error.value = ''
   loading.value = true
-  const result = auth.signup(form.value)
+  const result = await auth.signup(form.value)
   loading.value = false
   if (!result.ok) {
     error.value = result.message

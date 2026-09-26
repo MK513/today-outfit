@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 값을 다시 확인해주세요."),
+    PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다."),
+    INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다."),
     INVALID_FILE(HttpStatus.BAD_REQUEST, "5MB 이하의 JPG 또는 PNG 파일만 업로드할 수 있어요."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "삭제되었거나 존재하지 않는 항목입니다."),

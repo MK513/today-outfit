@@ -1,72 +1,100 @@
 import { defineStore } from 'pinia'
-import { loadJSON, saveJSON } from '@/lib/storage'
-import { uid } from '@/lib/constants'
+import { api } from '@/lib/api'
+import { loadJSON, saveJSON, removeKey } from '@/lib/storage'
+
+// 세션: { token, expiresAt(ms), user: { id, email, name, isDemo, createdAt } }
+function loadSession() {
+  const session = loadJSON('session', null)
+  if (!session?.token || !(session.expiresAt > Date.now())) return null
+  return session
+}
+
+function fail(error) {
+  return { ok: false, message: error.message, errorCode: error.errorCode }
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    users: loadJSON('users', []),
-    currentUserId: loadJSON('currentUserId', null),
+    session: loadSession(),
   }),
   getters: {
-    isLoggedIn: (state) => !!state.currentUserId,
-    currentUser: (state) => state.users.find((u) => u.id === state.currentUserId) ?? null,
+    // 만료는 서버가 401로 알려주면 api.js → clearSession()으로 처리한다.
+    isLoggedIn: (state) => !!state.session,
+    currentUser: (state) => state.session?.user ?? null,
+    token: (state) => state.session?.token ?? null,
   },
   actions: {
-    persist() {
-      saveJSON('users', this.users)
-      saveJSON('currentUserId', this.currentUserId)
+    setSession(auth) {
+      this.session = {
+        token: auth.accessToken,
+        expiresAt: Date.now() + auth.expiresIn * 1000,
+        user: auth.user,
+      }
+      saveJSON('session', this.session)
     },
-    signup({ email, password, passwordConfirm, name }) {
-      const normalizedEmail = email.trim().toLowerCase()
-      if (!normalizedEmail || !password || !name.trim()) {
-        return { ok: false, message: '이메일, 비밀번호, 이름을 모두 입력해주세요.' }
-      }
-      if (password !== passwordConfirm) {
-        return { ok: false, message: '비밀번호가 일치하지 않습니다.' }
-      }
-      if (this.users.some((u) => u.email === normalizedEmail && !u.withdrawnAt)) {
-        return { ok: false, message: '이미 가입된 이메일입니다.' }
-      }
-      const user = {
-        id: uid('user'),
-        email: normalizedEmail,
-        password,
-        name: name.trim(),
-        createdAt: new Date().toISOString(),
-        withdrawnAt: null,
-      }
-      this.users.push(user)
-      this.persist()
-      return { ok: true }
+    clearSession() {
+      this.session = null
+      removeKey('session')
     },
-    login({ email, password }) {
-      const normalizedEmail = email.trim().toLowerCase()
-      const user = this.users.find((u) => u.email === normalizedEmail && !u.withdrawnAt)
-      if (!user || user.password !== password) {
-        return { ok: false, message: '이메일 또는 비밀번호가 올바르지 않습니다.' }
+    /** 저장된 세션이 서버에서도 유효한지 확인하고 사용자 정보를 갱신한다. 401이면 api.js가 세션을 지운다. */
+    async refreshMe() {
+      try {
+        const user = await api.get('/users/me')
+        if (this.session) {
+          this.session = { ...this.session, user }
+          saveJSON('session', this.session)
+        }
+      } catch {
+        // 401은 onUnauthorized에서 처리, 네트워크 오류는 저장된 세션을 유지한다.
       }
-      this.currentUserId = user.id
-      this.persist()
-      return { ok: true }
     },
-    loginAsUserId(userId) {
-      this.currentUserId = userId
-      this.persist()
-    },
-    logout() {
-      this.currentUserId = null
-      this.persist()
-    },
-    withdraw(currentPassword) {
-      const user = this.currentUser
-      if (!user) return { ok: false, message: '로그인이 필요합니다.' }
-      if (user.password !== currentPassword) {
-        return { ok: false, message: '현재 비밀번호가 올바르지 않습니다.' }
+    async signup({ email, password, passwordConfirm, name }) {
+      try {
+        await api.post('/auth/signup', { email, password, passwordConfirm, name })
+        return { ok: true }
+      } catch (e) {
+        return fail(e)
       }
-      user.withdrawnAt = new Date().toISOString()
-      this.currentUserId = null
-      this.persist()
-      return { ok: true, withdrawnUserId: user.id }
+    },
+    async login({ email, password }) {
+      try {
+        this.setSession(await api.post('/auth/login', { email, password }))
+        return { ok: true }
+      } catch (e) {
+        return fail(e)
+      }
+    },
+    async loginDemo() {
+      try {
+        this.setSession(await api.post('/auth/demo'))
+        return { ok: true }
+      } catch (e) {
+        return fail(e)
+      }
+    },
+    async logout() {
+      try {
+        await api.post('/auth/logout')
+      } catch {
+        // 서버 무효화에 실패해도 이 기기에서는 로그아웃한다.
+      }
+      this.clearSession()
+    },
+    async withdraw(currentPassword) {
+      const userId = this.currentUser?.id
+      try {
+        await api.post('/users/me/withdrawal', { password: currentPassword })
+      } catch (e) {
+        return fail(e)
+      }
+      this.clearSession()
+      return { ok: true, withdrawnUserId: userId }
     },
   },
 })
+
+/** 서버 인증 도입 전 localStorage에 평문 비밀번호로 저장하던 계정 목록을 지운다. */
+export function removeLegacyLocalAccounts() {
+  removeKey('users')
+  removeKey('currentUserId')
+}

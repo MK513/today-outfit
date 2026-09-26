@@ -20,8 +20,8 @@ const password = ref('')
 const error = ref('')
 const submitting = ref(false)
 
-function logout() {
-  auth.logout()
+async function logout() {
+  await auth.logout()
   router.replace({ name: 'login' })
 }
 
@@ -34,7 +34,7 @@ function goConfirm() {
 async function withdraw() {
   error.value = ''
   submitting.value = true
-  const result = auth.withdraw(password.value)
+  const result = await auth.withdraw(password.value)
   submitting.value = false
   if (!result.ok) {
     error.value = result.message

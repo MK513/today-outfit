@@ -19,6 +19,24 @@ docker compose up -d
 
 프론트엔드(`npm run dev`)는 `/api` 요청을 Vite 프록시로 이 서버에 넘긴다.
 
+### 8080 포트가 이미 사용 중이라고 나올 때
+
+Windows에서 Docker Desktop · WSL이 켜질 때 8080이 포함된 포트 범위를 예약하는 경우가 있다.
+`netsh interface ipv4 show excludedportrange protocol=tcp`로 확인할 수 있다. 둘 중 하나로 해결한다.
+
+- 관리자 PowerShell에서 `net stop winnat; net start winnat` 실행 후 다시 시도
+- 다른 포트로 실행: `PORT=9080 ./gradlew bootRun`, 프론트는 `BACKEND_URL=http://localhost:9080 npm run dev`
+
+## 테스트
+
+```sh
+./gradlew test        # Windows PowerShell: .\gradlew.bat test
+```
+
+테스트는 개발 DB가 아니라 Testcontainers로 매번 새로 띄우는 PostgreSQL을 사용한다.
+Docker Desktop만 켜져 있으면 되고, `.env`나 개발 데이터에 영향을 주지 않는다.
+테스트 설정은 `src/test/resources/application-test.yml`에 있다.
+
 ## 설정
 
 키 · 비밀번호는 `backend/.env`에 두고 커밋하지 않는다. 항목과 생성 방법은 [.env.example](.env.example)에 있다.
