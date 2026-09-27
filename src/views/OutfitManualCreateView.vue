@@ -48,16 +48,20 @@ function moveDown(index) {
 async function save() {
   if (!selectedIds.value.length || !name.value.trim()) return
   saving.value = true
-  const outfit = outfits.add({
-    ownerId: auth.currentUser.id,
-    name: name.value.trim(),
-    memo: memo.value.trim(),
-    clothingIds: [...selectedIds.value],
-    source: 'MANUAL',
-  })
-  saving.value = false
-  show('코디를 저장했어요')
-  router.replace({ name: 'outfit-detail', params: { id: outfit.id } })
+  try {
+    const outfit = await outfits.create({
+      name: name.value.trim(),
+      memo: memo.value.trim(),
+      clothingIds: [...selectedIds.value],
+      source: 'MANUAL',
+    })
+    show('코디를 저장했어요')
+    router.replace({ name: 'outfit-detail', params: { id: outfit.id } })
+  } catch (e) {
+    show(e.message)
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
