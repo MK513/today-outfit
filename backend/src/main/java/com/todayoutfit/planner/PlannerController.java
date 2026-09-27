@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +41,14 @@ public class PlannerController {
             @Valid @RequestBody PlannerRequests.Upsert request) {
         PlannerService.UpsertResult result = plannerService.upsert(userId, planDate, request.outfitId());
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK).body(result.schedule());
+    }
+
+    /** AI 주간 추천 결과를 날짜별 코디로 만들고 배치한다 (한 트랜잭션) */
+    @PostMapping("/weekly-outfits")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<ScheduleResponse> saveWeekly(@LoginUser Long userId,
+            @Valid @RequestBody PlannerRequests.Weekly request) {
+        return plannerService.saveWeekly(userId, request);
     }
 
     @DeleteMapping("/schedules/{planDate}")

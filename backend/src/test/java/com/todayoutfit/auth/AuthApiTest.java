@@ -246,4 +246,20 @@ class AuthApiTest {
                 "select count(*) from outfit_items i join outfits o on o.id = i.outfit_id where o.user_id = ?",
                 Long.class, userId)).isEqualTo(7);
     }
+
+    @Test
+    void demoLoginExposesSampleOutfitsAndTomorrowSchedule() throws Exception {
+        String token = JsonPath.read(postJson("/auth/demo", "").andReturn().getResponse().getContentAsString(),
+                "$.access_token");
+        String tomorrow = LocalDate.now().plusDays(1).toString();
+
+        mockMvc.perform(get("/outfits").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total_elements").value(2));
+        mockMvc.perform(get("/planner/schedules").param("start_date", tomorrow).param("end_date", tomorrow)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].outfit.name").value("오피스 캐주얼"));
+    }
 }

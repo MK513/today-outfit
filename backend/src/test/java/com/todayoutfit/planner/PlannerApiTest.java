@@ -5,6 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.todayoutfit.IntegrationTest;
 import com.todayoutfit.TestApi;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -147,5 +150,89 @@ class PlannerApiTest {
         api.deleteAs(token, "/planner/schedules/2026-09-28").andExpect(status().isNotFound());
         api.getAs(otherToken, "/planner/schedules?start_date=2026-09-28&end_date=2026-09-28")
                 .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    // ---------- AI 주간 일괄 저장 ----------
+
+    private static String day(String date, String reason, long... clothingIds) {
+        String ids = Arrays.stream(clothingIds).mapToObj(String::valueOf).collect(Collectors.joining(","));
+        return "{\"plan_date\":\"%s\",\"clothing_ids\":[%s],\"ai_reason\":\"%s\"}".formatted(date, ids, reason);
+    }
+
+    private static String weekly(String requestText, String... days) {
+        return "{\"request_text\":\"%s\",\"days\":[%s]}".formatted(requestText, String.join(",", days));
+    }
+
+    @Test
+    void weeklyCreatesAiOutfitsAndSchedules() throws Exception {
+        api.postAs(token, "/planner/weekly-outfits", weekly("다음 주는 출근이 많아요",
+                        day("2026-10-02", "금요일 이유", top), day("2026-10-01", "목요일 이유", top, bottom)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].plan_date").value("2026-10-01"))
+                .andExpect(jsonPath("$[0].outfit.source").value("AI"))
+                .andExpect(jsonPath("$[0].outfit.thumbnails.length()").value(2))
+                .andExpect(jsonPath("$[1].plan_date").value("2026-10-02"));
+
+        api.getAs(token, "/outfits?source=AI").andExpect(jsonPath("$.total_elements").value(2));
+        long thursday = TestApi.id(
+                api.getAs(token, "/planner/schedules?start_date=2026-10-01&end_date=2026-10-01"), "$[0].outfit.id");
+        api.getAs(token, "/outfits/{id}", thursday)
+                .andExpect(jsonPath("$.request_text").value("다음 주는 출근이 많아요"))
+                .andExpect(jsonPath("$.ai_reason").value("목요일 이유"));
+    }
+
+    @Test
+    void weeklyNamesUseMonthDayWithoutPadding() throws Exception {
+        api.postAs(token, "/planner/weekly-outfits", weekly("이름 확인",
+                        day("2026-09-08", "a", top), day("2026-12-31", "b", top)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$[0].outfit.name").value("AI 주간 코디 9.8"))
+                .andExpect(jsonPath("$[1].outfit.name").value("AI 주간 코디 12.31"));
+    }
+
+    @Test
+    void weeklyReplacesExistingSchedule() throws Exception {
+        place(token, "2026-10-01", outfitA).andExpect(status().isCreated());
+
+        api.postAs(token, "/planner/weekly-outfits", weekly("교체", day("2026-10-01", "새 코디", bottom)))
+                .andExpect(status().isCreated());
+
+        api.getAs(token, "/planner/schedules?start_date=2026-10-01&end_date=2026-10-01")
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].outfit.name").value("AI 주간 코디 10.1"));
+        api.getAs(token, "/outfits/{id}", outfitA).andExpect(status().isOk());
+    }
+
+    @Test
+    void weeklyIsAllOrNothing() throws Exception {
+        long others = api.createClothing(otherToken, "남의 옷", "TOP");
+
+        api.postAs(token, "/planner/weekly-outfits", weekly("실패",
+                        day("2026-10-01", "a", top), day("2026-10-02", "b", others)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error_code").value("INVALID_CLOTHING"));
+
+        api.getAs(token, "/outfits?source=AI").andExpect(jsonPath("$.total_elements").value(0));
+        api.getAs(token, "/planner/schedules?start_date=2026-10-01&end_date=2026-10-02")
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void weeklyValidatesDays() throws Exception {
+        String[] eight = IntStream.rangeClosed(1, 8).mapToObj(d -> day("2026-10-0" + d, "r", top)).toArray(String[]::new);
+        String[] invalid = {
+                weekly("8일", eight),
+                weekly("중복", day("2026-10-01", "a", top), day("2026-10-01", "b", bottom)),
+                weekly("빈 목록"),
+                weekly("", day("2026-10-01", "a", top)),
+                weekly("같은 옷 두 번", day("2026-10-01", "a", top, top)),
+                weekly("이유 없음", "{\"plan_date\":\"2026-10-01\",\"clothing_ids\":[" + top + "]}"),
+        };
+        for (String json : invalid) {
+            api.postAs(token, "/planner/weekly-outfits", json)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error_code").value("INVALID_REQUEST"));
+        }
     }
 }

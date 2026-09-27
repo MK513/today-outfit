@@ -3,11 +3,14 @@ package com.todayoutfit.planner;
 import com.todayoutfit.common.ApiException;
 import com.todayoutfit.common.ErrorCode;
 import com.todayoutfit.outfit.Outfit;
+import com.todayoutfit.outfit.OutfitRepository;
 import com.todayoutfit.outfit.OutfitService;
+import com.todayoutfit.outfit.OutfitSource;
 import com.todayoutfit.user.User;
 import com.todayoutfit.user.UserRepository;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ public class PlannerService {
     private final ScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
     private final OutfitService outfitService;
+    private final OutfitRepository outfitRepository;
     private final TransactionTemplate transactionTemplate;
 
     public record UpsertResult(boolean created, ScheduleResponse schedule) {
@@ -60,6 +64,34 @@ public class PlannerService {
         Schedule schedule = scheduleRepository.findByUserIdAndPlanDate(userId, date)
                 .orElseThrow(() -> ApiException.notFound(NO_SCHEDULE_MESSAGE));
         scheduleRepository.delete(schedule);
+    }
+
+    /**
+     * AI 주간 추천 결과를 날짜별 코디(source=AI, 이름 "AI 주간 코디 {월}.{일}")로 만들고 각 날짜에 배치한다.
+     * 이미 배치된 날짜는 교체한다. 한 날짜라도 실패하면 전체를 저장하지 않는다(한 트랜잭션).
+     */
+    @Transactional
+    public List<ScheduleResponse> saveWeekly(Long userId, PlannerRequests.Weekly request) {
+        User user = userRepository.getReferenceById(userId);
+        List<PlannerRequests.Day> days = request.days().stream()
+                .sorted(Comparator.comparing(PlannerRequests.Day::planDate))
+                .toList();
+        for (PlannerRequests.Day day : days) {
+            Outfit outfit = outfitService.newOutfit(user, userId, weeklyOutfitName(day.planDate()), null,
+                    OutfitSource.AI, day.clothingIds());
+            outfit.recordAiRecommendation(request.requestText(), day.aiReason());
+            place(user, day.planDate(), outfitRepository.save(outfit));
+        }
+        scheduleRepository.flush();
+        return days.stream()
+                .map(day -> scheduleRepository.findByUserIdAndPlanDate(userId, day.planDate()).orElseThrow())
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /** 예: 2026-09-08 → "AI 주간 코디 9.8" (앞자리 0 없음) */
+    static String weeklyOutfitName(LocalDate date) {
+        return "AI 주간 코디 " + date.getMonthValue() + "." + date.getDayOfMonth();
     }
 
     /** 이 날짜에 코디를 배치한다. 새로 배치했으면 true, 기존 배치를 교체했으면 false. 트랜잭션 안에서 호출한다. */
