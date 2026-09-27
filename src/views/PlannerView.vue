@@ -33,14 +33,39 @@ const userId = computed(() => auth.currentUser.id)
 const weekStart = ref(startOfWeek(todayKey()))
 const days = computed(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart.value, i)))
 
+// 이번 주 일정. 주가 바뀌거나 배치를 바꾼 뒤 다시 불러온다.
+async function loadWeek() {
+  try {
+    await planner.loadRange(weekStart.value, addDays(weekStart.value, 6))
+  } catch (e) {
+    show(e.message)
+  }
+}
+watch(weekStart, loadWeek, { immediate: true })
+
+// 코디 상세의 "플래너에 배치하기"로 들어온 배치 모드 (?placeOutfit=코디 id)
 const placeOutfitId = ref(typeof route.query.placeOutfit === 'string' ? route.query.placeOutfit : null)
-const placeOutfit = computed(() => (placeOutfitId.value ? outfits.byId(placeOutfitId.value) : null))
+const placeOutfit = ref(null)
 
 watch(
   () => route.query.placeOutfit,
   (v) => {
     placeOutfitId.value = typeof v === 'string' ? v : null
   },
+)
+watch(
+  placeOutfitId,
+  async (id) => {
+    placeOutfit.value = null
+    if (!id) return
+    try {
+      placeOutfit.value = await outfits.get(id)
+    } catch (e) {
+      show(e.message)
+      cancelPlaceMode()
+    }
+  },
+  { immediate: true },
 )
 
 function cancelPlaceMode() {
@@ -49,12 +74,12 @@ function cancelPlaceMode() {
 }
 
 function scheduleFor(dateKey) {
-  return planner.findByDate(userId.value, dateKey)
+  return planner.findByDate(dateKey)
 }
 
+// 일정에 담긴 코디 요약 (thumbnails는 구성 순서 앞 3벌)
 function outfitFor(dateKey) {
-  const s = scheduleFor(dateKey)
-  return s ? outfits.byId(s.outfitId) : null
+  return scheduleFor(dateKey)?.outfit ?? null
 }
 
 function prevWeek() {
@@ -84,16 +109,26 @@ function onDayClick(dateKey) {
   }
 }
 
-function doPlaceOutfit(dateKey) {
-  const result = planner.upsert({ ownerId: userId.value, planDate: dateKey, outfitId: placeOutfitId.value })
-  show(result.status === 201 ? '코디를 배치했어요' : '코디를 교체했어요')
-  cancelPlaceMode()
+async function placeAndReload(dateKey, outfitId) {
+  try {
+    const { created } = await planner.upsert(dateKey, outfitId)
+    show(created ? '코디를 배치했어요' : '코디를 교체했어요')
+  } catch (e) {
+    show(e.message)
+  }
+  await loadWeek()
 }
 
-function choosePickerOutfit(outfitId) {
-  planner.upsert({ ownerId: userId.value, planDate: pickerDate.value, outfitId })
+async function doPlaceOutfit(dateKey) {
+  const outfitId = placeOutfitId.value
+  cancelPlaceMode()
+  await placeAndReload(dateKey, outfitId)
+}
+
+async function choosePickerOutfit(outfitId) {
+  const dateKey = pickerDate.value
   pickerDate.value = null
-  show('코디를 배치했어요')
+  await placeAndReload(dateKey, outfitId)
 }
 
 function replaceFromSheet() {
@@ -101,14 +136,28 @@ function replaceFromSheet() {
   actionSheetDate.value = null
 }
 
-function unscheduleFromSheet() {
-  const s = scheduleFor(actionSheetDate.value)
-  if (s) planner.remove(s.id)
+async function unscheduleFromSheet() {
+  const dateKey = actionSheetDate.value
   actionSheetDate.value = null
-  show('배치를 해제했어요')
+  try {
+    await planner.remove(dateKey)
+    show('배치를 해제했어요')
+  } catch (e) {
+    show(e.message)
+  }
+  await loadWeek()
 }
 
-const savedOutfits = computed(() => outfits.byOwner(userId.value))
+// 코디 선택 시트를 열 때마다 최신 코디 목록을 불러온다.
+const savedOutfits = ref([])
+watch(pickerDate, async (dateKey) => {
+  if (!dateKey) return
+  try {
+    savedOutfits.value = await outfits.list()
+  } catch (e) {
+    show(e.message)
+  }
+})
 
 // --- AI 주간 추천 ---
 const showAiPanel = ref(false)
@@ -147,25 +196,29 @@ async function requestWeekly() {
   }
 }
 
+// 날짜별 코디 생성 + 배치를 서버가 한 트랜잭션으로 처리한다 (이름 "AI 주간 코디 M.D"는 서버가 붙임).
 async function saveWeeklyResults() {
   aiSaving.value = true
-  for (const day of aiResults.value) {
-    const dateKey = addDays(aiStartDate.value, day.dayOffset)
-    const outfit = outfits.add({
-      ownerId: userId.value,
-      name: `AI 주간 코디 ${formatDateShort(dateKey)}`,
-      clothingIds: day.clothingIds,
-      source: 'AI',
+  aiError.value = ''
+  try {
+    const saved = await planner.saveWeekly({
       requestText: aiSituation.value.trim(),
-      aiReason: day.aiReason,
+      days: aiResults.value.map((day) => ({
+        planDate: addDays(aiStartDate.value, day.dayOffset),
+        clothingIds: day.clothingIds,
+        aiReason: day.aiReason,
+      })),
     })
-    planner.upsert({ ownerId: userId.value, planDate: dateKey, outfitId: outfit.id })
+    show(`${saved.length}일치 코디를 플래너에 저장했어요`)
+    aiResults.value = []
+    aiSituation.value = ''
+    showAiPanel.value = false
+    await loadWeek()
+  } catch (e) {
+    aiError.value = e.message
+  } finally {
+    aiSaving.value = false
   }
-  aiSaving.value = false
-  show(`${aiResults.value.length}일치 코디를 플래너에 저장했어요`)
-  aiResults.value = []
-  aiSituation.value = ''
-  showAiPanel.value = false
 }
 </script>
 
@@ -198,7 +251,7 @@ async function saveWeeklyResults() {
           <span class="date">{{ formatDateShort(d) }}</span>
         </div>
         <template v-if="outfitFor(d)">
-          <ClothingThumb :clothing="wardrobe.byId(outfitFor(d).clothingIds[0])" :size="46" />
+          <ClothingThumb :clothing="outfitFor(d).thumbnails[0] ?? null" :size="46" />
           <span class="outfit-name">{{ outfitFor(d).name }}</span>
         </template>
         <span v-else class="empty-label">+ 코디 배치하기</span>

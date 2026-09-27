@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWardrobeStore } from '@/stores/wardrobe'
@@ -23,8 +23,20 @@ const userId = computed(() => auth.currentUser.id)
 const myClothes = computed(() => wardrobe.byOwner(userId.value))
 const clothesCount = computed(() => myClothes.value.length)
 
-const todaySchedule = ref(planner.findByDate(userId.value, todayKey()))
-const todayOutfit = computed(() => (todaySchedule.value ? outfits.byId(todaySchedule.value.outfitId) : null))
+// 오늘 배치된 코디의 상세(구성 옷 전체). 홈 요약 API(5단계) 전까지 일정 조회 + 상세 조회로 채운다.
+const todayOutfit = ref(null)
+
+async function loadToday() {
+  try {
+    await planner.loadRange(todayKey(), todayKey())
+    const schedule = planner.findByDate(todayKey())
+    todayOutfit.value = schedule ? await outfits.get(schedule.outfit.id) : null
+  } catch (e) {
+    show(e.message)
+  }
+}
+
+onMounted(loadToday)
 const rerolling = ref(false)
 
 function emptySlots() {
@@ -51,21 +63,30 @@ function toggleLock(cat) {
   locked.value[cat] = !locked.value[cat]
 }
 
-function confirmOutfit() {
+const confirming = ref(false)
+
+async function confirmOutfit() {
   const clothingIds = OUTFIT_SLOT_CATEGORIES.map((cat) => slots.value[cat]?.id).filter(Boolean)
-  if (!clothingIds.length) return
+  if (!clothingIds.length || confirming.value) return
+  confirming.value = true
   const d = new Date()
-  const outfit = outfits.add({
-    ownerId: userId.value,
-    name: `오늘의 코디 ${d.getMonth() + 1}.${d.getDate()}`,
-    clothingIds,
-    source: 'RANDOM',
-  })
-  const result = planner.upsert({ ownerId: userId.value, planDate: todayKey(), outfitId: outfit.id })
-  todaySchedule.value = result.schedule
-  slots.value = emptySlots()
-  locked.value = emptyLocks()
-  show('오늘의 코디로 확정했어요')
+  try {
+    const outfit = await outfits.create({
+      name: `오늘의 코디 ${d.getMonth() + 1}.${d.getDate()}`,
+      clothingIds,
+      source: 'RANDOM',
+    })
+    await planner.upsert(todayKey(), outfit.id)
+    todayOutfit.value = outfit
+    rerolling.value = false
+    slots.value = emptySlots()
+    locked.value = emptyLocks()
+    show('오늘의 코디로 확정했어요')
+  } catch (e) {
+    show(e.message)
+  } finally {
+    confirming.value = false
+  }
 }
 
 function restart() {
@@ -95,9 +116,9 @@ function restart() {
         </div>
         <div style="display: flex; gap: 10px">
           <ClothingThumb
-            v-for="id in todayOutfit.clothingIds"
-            :key="id"
-            :clothing="wardrobe.byId(id)"
+            v-for="item in todayOutfit.items"
+            :key="item.clothing.id"
+            :clothing="item.clothing"
             :size="86"
           />
         </div>
@@ -151,7 +172,7 @@ function restart() {
           <Icon v-if="hasDrawn" name="dice-5" :size="16" />
           {{ hasDrawn ? '다시 돌리기 (잠금 제외)' : 'AI 오늘의 픽 받기' }}
         </button>
-        <button class="btn btn-primary" type="button" :disabled="!canConfirm" @click="confirmOutfit">
+        <button class="btn btn-primary" type="button" :disabled="!canConfirm || confirming" @click="confirmOutfit">
           이걸로 입을래요
         </button>
       </div>
