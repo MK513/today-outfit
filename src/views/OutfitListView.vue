@@ -1,18 +1,29 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { useOutfitsStore } from '@/stores/outfits'
+import { useToast } from '@/composables/useToast'
 import OutfitCard from '@/components/OutfitCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import TopBar from '@/components/TopBar.vue'
 import Icon from '@/components/Icon.vue'
 
-const auth = useAuthStore()
 const outfits = useOutfitsStore()
 const router = useRouter()
+const { show } = useToast()
 
-const list = computed(() => outfits.byOwner(auth.currentUser.id))
+const list = ref([])
+const loading = ref(true)
+
+onMounted(async () => {
+  try {
+    list.value = await outfits.list()
+  } catch (e) {
+    show(e.message)
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>
@@ -28,8 +39,9 @@ const list = computed(() => outfits.byOwner(auth.currentUser.id))
       </button>
     </div>
 
+    <p v-if="loading" class="hint-text">불러오는 중…</p>
     <EmptyState
-      v-if="list.length === 0"
+      v-else-if="list.length === 0"
       icon="stack-2"
       title="저장된 코디가 없어요"
       description="AI 추천을 받거나 직접 코디를 만들어보세요."

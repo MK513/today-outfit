@@ -3,15 +3,11 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWardrobeStore } from '@/stores/wardrobe'
-import { useOutfitsStore } from '@/stores/outfits'
-import { usePlannerStore } from '@/stores/planner'
 import TopBar from '@/components/TopBar.vue'
 import { useToast } from '@/composables/useToast'
 
 const auth = useAuthStore()
 const wardrobe = useWardrobeStore()
-const outfits = useOutfitsStore()
-const planner = usePlannerStore()
 const router = useRouter()
 const { show } = useToast()
 
@@ -41,8 +37,6 @@ async function withdraw() {
     return
   }
   wardrobe.reset()
-  outfits.purgeOwner(result.withdrawnUserId)
-  planner.purgeOwner(result.withdrawnUserId)
   show('계정 탈퇴가 완료되었습니다')
   router.replace({ name: 'login' })
 }

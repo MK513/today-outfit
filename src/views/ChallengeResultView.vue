@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { useWardrobeStore } from '@/stores/wardrobe'
 import { useOutfitsStore } from '@/stores/outfits'
 import { useChallengeStore } from '@/stores/challenge'
@@ -10,7 +9,6 @@ import ClothingThumb from '@/components/ClothingThumb.vue'
 import TopBar from '@/components/TopBar.vue'
 import { useToast } from '@/composables/useToast'
 
-const auth = useAuthStore()
 const wardrobe = useWardrobeStore()
 const outfits = useOutfitsStore()
 const challenge = useChallengeStore()
@@ -34,22 +32,26 @@ onMounted(async () => {
   }
 })
 
-function save() {
+async function save() {
   if (!name.value.trim()) return
   saving.value = true
-  const outfit = outfits.add({
-    ownerId: auth.currentUser.id,
-    name: name.value.trim(),
-    clothingIds: [...challenge.chosenClothingIds],
-    source: 'CHALLENGE',
-    aiScore: evalResult.value?.score ?? null,
-    aiComment: evalResult.value?.comment ?? null,
-    aiTags: evalResult.value?.tags ?? null,
-  })
-  saving.value = false
-  challenge.reset()
-  show('챌린지 코디를 저장했어요')
-  router.replace({ name: 'outfit-detail', params: { id: outfit.id } })
+  try {
+    const outfit = await outfits.create({
+      name: name.value.trim(),
+      clothingIds: [...challenge.chosenClothingIds],
+      source: 'CHALLENGE',
+      aiScore: evalResult.value?.score ?? null,
+      aiComment: evalResult.value?.comment ?? null,
+      aiTags: evalResult.value?.tags ?? null,
+    })
+    challenge.reset()
+    show('챌린지 코디를 저장했어요')
+    router.replace({ name: 'outfit-detail', params: { id: outfit.id } })
+  } catch (e) {
+    show(e.message)
+  } finally {
+    saving.value = false
+  }
 }
 
 function retry() {

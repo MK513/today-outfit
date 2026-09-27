@@ -2,17 +2,10 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useWardrobeStore } from '@/stores/wardrobe'
-import { useOutfitsStore } from '@/stores/outfits'
-import { usePlannerStore } from '@/stores/planner'
-import { seedLocalDemoData } from '@/lib/seedDemo'
 import { useToast } from '@/composables/useToast'
 import Icon from '@/components/Icon.vue'
 
 const auth = useAuthStore()
-const wardrobe = useWardrobeStore()
-const outfits = useOutfitsStore()
-const planner = usePlannerStore()
 const router = useRouter()
 const route = useRoute()
 const { show } = useToast()
@@ -47,13 +40,6 @@ async function tryDemo() {
   if (!result.ok) {
     error.value = result.message
     return
-  }
-  const userId = auth.currentUser.id
-  try {
-    await wardrobe.load(userId)
-    seedLocalDemoData(userId, wardrobe.byOwner(userId), outfits, planner)
-  } catch {
-    // 샘플 코디 생성은 부가 기능이라 실패해도 체험은 계속한다.
   }
   show('데모 계정으로 체험을 시작합니다')
   afterLogin()

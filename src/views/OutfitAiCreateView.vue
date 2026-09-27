@@ -48,18 +48,22 @@ async function requestRecommend() {
 async function save() {
   if (!result.value || !name.value.trim()) return
   saving.value = true
-  const outfit = outfits.add({
-    ownerId: auth.currentUser.id,
-    name: name.value.trim(),
-    memo: memo.value.trim(),
-    clothingIds: result.value.clothingIds,
-    source: 'AI',
-    requestText: situation.value.trim(),
-    aiReason: result.value.aiReason,
-  })
-  saving.value = false
-  show('AI 코디를 저장했어요')
-  router.replace({ name: 'outfit-detail', params: { id: outfit.id } })
+  try {
+    const outfit = await outfits.create({
+      name: name.value.trim(),
+      memo: memo.value.trim(),
+      clothingIds: result.value.clothingIds,
+      source: 'AI',
+      requestText: situation.value.trim(),
+      aiReason: result.value.aiReason,
+    })
+    show('AI 코디를 저장했어요')
+    router.replace({ name: 'outfit-detail', params: { id: outfit.id } })
+  } catch (e) {
+    show(e.message)
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 

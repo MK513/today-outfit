@@ -1,8 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOutfitsStore } from '@/stores/outfits'
-import { useWardrobeStore } from '@/stores/wardrobe'
 import { OUTFIT_SOURCE_LABEL } from '@/lib/constants'
 import ClothingThumb from '@/components/ClothingThumb.vue'
 import TopBar from '@/components/TopBar.vue'
@@ -11,18 +10,43 @@ import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ id: { type: String, required: true } })
 const outfits = useOutfitsStore()
-const wardrobe = useWardrobeStore()
 const router = useRouter()
 const { show } = useToast()
 
-const outfit = computed(() => outfits.byId(props.id))
-const items = computed(() => (outfit.value ? outfit.value.clothingIds.map((id) => wardrobe.byId(id)).filter(Boolean) : []))
+const outfit = ref(null)
+const loading = ref(true)
+const removing = ref(false)
+// 구성 의류(item_order 순). 삭제된 옷은 서버가 이미 빼고 준다.
+const items = computed(() => (outfit.value ? outfit.value.items.map((i) => i.clothing) : []))
 
-function remove() {
-  if (!outfit.value) return
-  outfits.remove(outfit.value.id)
-  show('코디를 삭제했어요')
-  router.replace({ name: 'outfits' })
+watch(
+  () => props.id,
+  async (id) => {
+    loading.value = true
+    try {
+      outfit.value = await outfits.get(id)
+    } catch (e) {
+      show(e.message)
+      if (e.status === 404) router.replace({ name: 'outfits' })
+    } finally {
+      loading.value = false
+    }
+  },
+  { immediate: true },
+)
+
+async function remove() {
+  if (!outfit.value || removing.value) return
+  removing.value = true
+  try {
+    await outfits.remove(outfit.value.id)
+    show('코디를 삭제했어요')
+    router.replace({ name: 'outfits' })
+  } catch (e) {
+    show(e.message)
+  } finally {
+    removing.value = false
+  }
 }
 
 function placeToPlanner() {
@@ -78,11 +102,11 @@ function placeToPlanner() {
     <button class="btn btn-secondary btn-block" type="button" @click="placeToPlanner">
       <Icon name="calendar" :size="16" /> 플래너에 배치하기
     </button>
-    <button class="btn btn-danger btn-block" type="button" @click="remove">코디 삭제하기</button>
+    <button class="btn btn-danger btn-block" type="button" :disabled="removing" @click="remove">코디 삭제하기</button>
   </div>
   <div class="page" v-else>
     <TopBar title="코디 상세" back />
-    <p class="hint-text">삭제되었거나 존재하지 않는 코디입니다.</p>
+    <p class="hint-text">{{ loading ? '불러오는 중…' : '삭제되었거나 존재하지 않는 코디입니다.' }}</p>
   </div>
 </template>
 

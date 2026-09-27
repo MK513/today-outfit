@@ -3,6 +3,7 @@ import { RouterView, useRoute } from 'vue-router'
 import { computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWardrobeStore } from '@/stores/wardrobe'
+import { usePlannerStore } from '@/stores/planner'
 import BottomNav from '@/components/BottomNav.vue'
 import { useToast } from '@/composables/useToast'
 
@@ -14,11 +15,13 @@ const showNav = computed(() => auth.isLoggedIn && !route.meta.guest)
 
 // 로그인 · 로그아웃 · 계정 전환 시 서버 옷장을 다시 불러온다.
 const wardrobe = useWardrobeStore()
+const planner = usePlannerStore()
 watch(
   () => auth.currentUser?.id,
   (userId) => {
     if (!userId) {
       wardrobe.reset()
+      planner.reset()
       return
     }
     wardrobe.load(userId).catch(() => {

@@ -44,4 +44,9 @@ public class Schedule extends BaseTimeEntity {
         this.planDate = planDate;
         this.outfit = outfit;
     }
+
+    /** 이 날짜에 배치된 코디를 교체한다. updated_at은 저장 시 기록된다. */
+    public void changeOutfit(Outfit outfit) {
+        this.outfit = outfit;
+    }
 }

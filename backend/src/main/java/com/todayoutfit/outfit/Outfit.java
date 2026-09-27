@@ -82,6 +82,14 @@ public class Outfit extends BaseTimeEntity {
         items.add(new OutfitItem(this, clothing, items.size() + 1));
     }
 
+    /** source=CHALLENGE 코디의 AI 평가. 평가에 실패했으면 모두 비어 있을 수 있다. */
+    public void recordChallengeEvaluation(Integer aiScore, String aiComment, List<String> tags) {
+        this.aiScore = aiScore;
+        this.aiComment = aiComment;
+        this.tags.clear();
+        tags.forEach(tag -> this.tags.add(new OutfitAiTag(this, tag)));
+    }
+
     /** source=AI 코디의 요청 상황과 추천 이유 */
     public void recordAiRecommendation(String requestText, String aiReason) {
         this.requestText = requestText;
