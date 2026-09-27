@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { api } from '@/lib/api'
-import { useOutfitsStore } from '@/stores/outfits'
 
 // 서버(/api/clothes)의 내 옷장을 메모리에 캐시한다.
 // 코디 · 플래너 · 챌린지 화면이 의류를 ID로 바로 찾아야 해서 목록 전체를 한 번에 불러온다.
@@ -87,8 +86,6 @@ export const useWardrobeStore = defineStore('wardrobe', {
     async remove(id) {
       await api.delete(`/clothes/${id}`)
       this.clothes = this.clothes.filter((c) => String(c.id) !== String(id))
-      // 서버에서는 코디 구성에서 자동으로 빠진다. 코디가 아직 로컬에 있어 같은 처리를 해준다(4단계에서 제거).
-      useOutfitsStore().removeClothingReference(id)
     },
   },
 })

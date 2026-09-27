@@ -37,7 +37,7 @@ function convertKeys(value, convert) {
   return value
 }
 
-async function request(method, path, body) {
+async function request(method, path, body, { withStatus = false } = {}) {
   const token = getToken()
   const isForm = body instanceof FormData
   const headers = { Accept: 'application/json' }
@@ -75,13 +75,15 @@ async function request(method, path, body) {
       data?.message ?? '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
     )
   }
-  return convertKeys(data, toCamelKey)
+  const result = convertKeys(data, toCamelKey)
+  return withStatus ? { status: response.status, data: result } : result
 }
 
 export const api = {
   get: (path) => request('GET', path),
   post: (path, body) => request('POST', path, body),
-  put: (path, body) => request('PUT', path, body),
+  /** options.withStatus: true면 { status, data }로 돌려준다 (201 신규 / 200 교체 구분용) */
+  put: (path, body, options) => request('PUT', path, body, options),
   delete: (path) => request('DELETE', path),
   /** multipart 업로드. fields: { image: File } 형태 */
   upload: (path, fields) => {

@@ -1,70 +1,34 @@
 import { defineStore } from 'pinia'
-import { loadJSON, saveJSON } from '@/lib/storage'
-import { uid } from '@/lib/constants'
-import { usePlannerStore } from '@/stores/planner'
+import { api } from '@/lib/api'
+
+// 코디는 캐시하지 않고 화면마다 서버(/api/outfits)에서 받아온다.
+// - 목록 항목(OutfitSummary): { id, name, source, aiScore, thumbnails: ClothingSummary[], createdAt }
+// - 상세(OutfitDetail): 위 필드 + { memo, requestText, aiReason, aiComment, aiTags, items: [{ itemOrder, clothing }] }
+
+const LIST_SIZE = 100
 
 export const useOutfitsStore = defineStore('outfits', {
-  state: () => ({
-    outfits: loadJSON('outfits', []),
-  }),
-  getters: {
-    byOwner: (state) => (ownerId) =>
-      state.outfits
-        .filter((o) => o.ownerId === ownerId)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-    byId: (state) => (id) => state.outfits.find((o) => o.id === id) ?? null,
-  },
   actions: {
-    persist() {
-      saveJSON('outfits', this.outfits)
+    /** 내 코디 최신순 (최대 100개). source로 생성 경로를 거를 수 있다. */
+    async list({ source } = {}) {
+      const query = source ? `&source=${source}` : ''
+      const page = await api.get(`/outfits?size=${LIST_SIZE}${query}`)
+      return page.content
     },
-    add({
-      ownerId,
-      name,
-      memo = '',
-      clothingIds,
-      source,
-      requestText = null,
-      aiReason = null,
-      aiScore = null,
-      aiComment = null,
-      aiTags = null,
-    }) {
-      const outfit = {
-        id: uid('outfit'),
-        ownerId,
-        name,
-        memo,
-        clothingIds,
-        source,
-        requestText,
-        aiReason,
-        aiScore,
-        aiComment,
-        aiTags,
-        createdAt: new Date().toISOString(),
-      }
-      this.outfits.unshift(outfit)
-      this.persist()
-      return outfit
+    get(id) {
+      return api.get(`/outfits/${id}`)
     },
+    /**
+     * @param payload { name, memo, source, clothingIds, requestText, aiReason, aiScore, aiComment, aiTags }
+     *   생성 경로와 맞지 않는 AI 필드는 서버가 무시한다.
+     * @returns 저장된 코디 상세
+     */
+    create(payload) {
+      return api.post('/outfits', payload)
+    },
+    /** 배치된 플래너 일정도 서버에서 함께 삭제된다. */
     remove(id) {
-      this.outfits = this.outfits.filter((o) => o.id !== id)
-      this.persist()
-      usePlannerStore().removeByOutfitId(id)
-    },
-    removeClothingReference(clothingId) {
-      let changed = false
-      this.outfits = this.outfits.map((o) => {
-        if (!o.clothingIds.includes(clothingId)) return o
-        changed = true
-        return { ...o, clothingIds: o.clothingIds.filter((id) => id !== clothingId) }
-      })
-      if (changed) this.persist()
-    },
-    purgeOwner(ownerId) {
-      this.outfits = this.outfits.filter((o) => o.ownerId !== ownerId)
-      this.persist()
+      return api.delete(`/outfits/${id}`)
     },
   },
 })

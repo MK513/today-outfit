@@ -1,21 +1,15 @@
 <script setup>
-import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useWardrobeStore } from '@/stores/wardrobe'
 import ClothingThumb from './ClothingThumb.vue'
 import { OUTFIT_SOURCE_LABEL } from '@/lib/constants'
 
 const props = defineProps({
+  // 서버 OutfitSummary: 썸네일(thumbnails)은 구성 순서 앞 3벌
   outfit: { type: Object, required: true },
   clickable: { type: Boolean, default: true },
 })
 
 const router = useRouter()
-const wardrobe = useWardrobeStore()
-
-const items = computed(() =>
-  props.outfit.clothingIds.map((id) => wardrobe.byId(id)).filter(Boolean).slice(0, 3),
-)
 
 function open() {
   if (props.clickable) router.push({ name: 'outfit-detail', params: { id: props.outfit.id } })
@@ -25,7 +19,7 @@ function open() {
 <template>
   <button type="button" class="outfit-card" @click="open">
     <div class="thumbs">
-      <ClothingThumb v-for="item in items" :key="item.id" :clothing="item" :size="56" />
+      <ClothingThumb v-for="item in outfit.thumbnails" :key="item.id" :clothing="item" :size="56" />
     </div>
     <div class="meta">
       <p class="name">{{ outfit.name }}</p>
