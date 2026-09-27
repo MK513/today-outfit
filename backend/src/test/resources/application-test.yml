@@ -3,6 +3,11 @@ spring:
   datasource:
     username: test
     password: test
+  jpa:
+    properties:
+      hibernate:
+        # 쿼리 수 테스트(OutfitQueryCountTest 등)에서 SQL 실행 수를 센다.
+        generate_statistics: true
 
 app:
   jwt:

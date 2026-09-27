@@ -4,6 +4,7 @@ import com.todayoutfit.clothing.Clothing;
 import com.todayoutfit.clothing.ClothingRepository;
 import com.todayoutfit.common.ApiException;
 import com.todayoutfit.common.ErrorCode;
+import com.todayoutfit.common.PageResponse;
 import com.todayoutfit.image.ImageService;
 import com.todayoutfit.user.User;
 import com.todayoutfit.user.UserRepository;
@@ -13,6 +14,10 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutfitService {
 
     private static final String NOT_FOUND_MESSAGE = "삭제되었거나 존재하지 않는 코디입니다.";
+    private static final Sort LATEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
     private final OutfitRepository outfitRepository;
     private final ClothingRepository clothingRepository;
@@ -44,6 +50,22 @@ public class OutfitService {
             outfit.recordChallengeEvaluation(request.aiScore(), request.aiComment(), tags);
         }
         return toDetail(outfitRepository.save(outfit));
+    }
+
+    /** 최신순(created_at, id 내림차순). 클라이언트가 보낸 정렬 조건은 무시한다. */
+    @Transactional(readOnly = true)
+    public PageResponse<OutfitSummaryResponse> list(Long userId, OutfitSource source, Pageable pageable) {
+        Pageable latest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), LATEST_FIRST);
+        Page<Outfit> page = source == null
+                ? outfitRepository.findAllByUserId(userId, latest)
+                : outfitRepository.findAllByUserIdAndSource(userId, source, latest);
+        return PageResponse.from(page, this::toSummary);
+    }
+
+    /** 배치된 일정은 DB ON DELETE CASCADE로 함께 삭제된다. */
+    @Transactional
+    public void delete(Long userId, Long outfitId) {
+        outfitRepository.delete(findOwned(userId, outfitId));
     }
 
     @Transactional(readOnly = true)
@@ -71,6 +93,10 @@ public class OutfitService {
     public Outfit findOwned(Long userId, Long outfitId) {
         return outfitRepository.findByIdAndUserId(outfitId, userId)
                 .orElseThrow(() -> ApiException.notFound(NOT_FOUND_MESSAGE));
+    }
+
+    public OutfitSummaryResponse toSummary(Outfit outfit) {
+        return OutfitSummaryResponse.from(outfit, imageService::publicUrl);
     }
 
     private OutfitDetailResponse toDetail(Outfit outfit) {

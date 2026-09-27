@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @IntegrationTest
@@ -22,6 +23,9 @@ class OutfitApiTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    JdbcTemplate jdbc;
 
     private TestApi api;
     private String token;
@@ -169,5 +173,82 @@ class OutfitApiTest {
     void createRequiresLogin() throws Exception {
         api.postAs(null, "/outfits", outfitJson("룩", "MANUAL", null, a))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // ---------- 목록 · 삭제 ----------
+
+    @Test
+    void listIsNewestFirstWithSourceFilterAndThreeThumbnails() throws Exception {
+        long d = api.createClothing(token, "볼캡", "HAT");
+        long manual = api.createOutfit(token, "네 벌 코디", b, a, c, d);
+        long ai = TestApi.id(api.postAs(token, "/outfits",
+                outfitJson("AI 코디", "AI", "\"request_text\":\"출근\"", a)), "$.id");
+
+        api.getAs(token, "/outfits")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total_elements").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(ai))
+                .andExpect(jsonPath("$.content[0].source").value("AI"))
+                .andExpect(jsonPath("$.content[1].id").value(manual))
+                .andExpect(jsonPath("$.content[1].name").value("네 벌 코디"))
+                .andExpect(jsonPath("$.content[1].thumbnails.length()").value(3))
+                .andExpect(jsonPath("$.content[1].thumbnails[0].id").value(b))
+                .andExpect(jsonPath("$.content[1].thumbnails[2].id").value(c))
+                .andExpect(jsonPath("$.content[1].created_at").exists());
+
+        api.getAs(token, "/outfits?source=AI")
+                .andExpect(jsonPath("$.total_elements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(ai));
+
+        api.getAs(token, "/outfits?page=2&size=1")
+                .andExpect(jsonPath("$.page").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(manual));
+
+        api.getAs(otherToken, "/outfits").andExpect(jsonPath("$.total_elements").value(0));
+    }
+
+    @Test
+    void deleteRemovesOutfitAndItsSchedules() throws Exception {
+        long outfit = api.createOutfit(token, "배치된 코디", a, b);
+        long userId = TestApi.id(api.getAs(token, "/users/me"), "$.id");
+        jdbc.update("insert into schedules(user_id, plan_date, outfit_id) values (?, ?, ?)",
+                userId, java.time.LocalDate.of(2026, 10, 1), outfit);
+
+        api.deleteAs(token, "/outfits/{id}", outfit).andExpect(status().isNoContent());
+
+        api.getAs(token, "/outfits/{id}", outfit).andExpect(status().isNotFound());
+        org.assertj.core.api.Assertions.assertThat(
+                jdbc.queryForObject("select count(*) from schedules where outfit_id = ?", Long.class, outfit)).isZero();
+    }
+
+    @Test
+    void othersOutfitCannotBeDeleted() throws Exception {
+        long others = api.createOutfit(otherToken, "남의 코디", api.createClothing(otherToken, "옷", "TOP"));
+
+        api.deleteAs(token, "/outfits/{id}", others).andExpect(status().isNotFound());
+        api.getAs(otherToken, "/outfits/{id}", others).andExpect(status().isOk());
+    }
+
+    @Test
+    void listAndDetailSkipDeletedClothingKeepingOrder() throws Exception {
+        long outfit = api.createOutfit(token, "빈칸 생길 코디", a, b, c);
+
+        api.deleteAs(token, "/clothes/{id}", b).andExpect(status().isNoContent());
+
+        api.getAs(token, "/outfits/{id}", outfit)
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].clothing.id").value(a))
+                .andExpect(jsonPath("$.items[1].clothing.id").value(c));
+        api.getAs(token, "/outfits")
+                .andExpect(jsonPath("$.content[0].thumbnails.length()").value(2))
+                .andExpect(jsonPath("$.content[0].thumbnails[0].id").value(a))
+                .andExpect(jsonPath("$.content[0].thumbnails[1].id").value(c));
+
+        api.deleteAs(token, "/clothes/{id}", a).andExpect(status().isNoContent());
+        api.deleteAs(token, "/clothes/{id}", c).andExpect(status().isNoContent());
+
+        api.getAs(token, "/outfits")
+                .andExpect(jsonPath("$.total_elements").value(1))
+                .andExpect(jsonPath("$.content[0].thumbnails", empty()));
     }
 }
